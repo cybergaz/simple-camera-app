@@ -1,0 +1,19 @@
+{
+    "name": "test-app",
+    "module": "index.ts",
+    "type": "module",
+    "scripts": {
+        "start:backend": "cd backend && bun start",
+        "start:frontend": "cd frontend && bun start",
+        "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\""
+    },
+    "devDependencies": {
+        "@types/bun": "latest"
+    },
+    "peerDependencies": {
+        "typescript": "^5.0.0"
+    },
+    "dependencies": {
+        "concurrently": "^9.1.2"
+    }
+}
