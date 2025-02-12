@@ -1,11 +1,12 @@
 import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { Image } from 'expo-image';
 import { Video, ResizeMode } from 'expo-av';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { FontAwesome } from '@expo/vector-icons';
 import { useNavigation, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../shared/types/navigation';
+import * as FileSystem from 'expo-file-system';
 import axios from 'axios';
 
 type PreviewScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Preview'>;
@@ -20,6 +21,24 @@ export default function PreviewScreen({ route }: PreviewScreenProps) {
     const navigation = useNavigation<PreviewScreenNavigationProp>();
     const videoRef = useRef<Video>(null);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [fileSize, setFileSize] = useState<string>('');
+
+    useEffect(() => {
+        const getFileSize = async () => {
+            try {
+                const fileInfo = await FileSystem.getInfoAsync(uri);
+                if (fileInfo.exists && fileInfo.size) {
+                    // Convert to MB with 2 decimal places
+                    const sizeInMB = (fileInfo.size / (1024 * 1024)).toFixed(2);
+                    setFileSize(`${sizeInMB} MB`);
+                }
+            } catch (error) {
+                console.error('Error getting file size:', error);
+            }
+        };
+
+        getFileSize();
+    }, [uri]);
 
     const handleSave = async () => {
         try {
@@ -85,6 +104,11 @@ export default function PreviewScreen({ route }: PreviewScreenProps) {
                                 color="white"
                             />
                         </Pressable>
+                    </View>
+                )}
+                {fileSize && (
+                    <View style={styles.fileSizeContainer}>
+                        <Text style={styles.fileSizeText}>Size: {fileSize}</Text>
                     </View>
                 )}
             </View>
@@ -160,5 +184,18 @@ const styles = StyleSheet.create({
         marginLeft: 10,
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    fileSizeContainer: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        padding: 8,
+        borderRadius: 8,
+    },
+    fileSizeText: {
+        color: 'white',
+        fontSize: 14,
+        fontWeight: '500',
     },
 });

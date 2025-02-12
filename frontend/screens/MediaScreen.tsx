@@ -1,76 +1,240 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Button, Pressable, StyleSheet } from 'react-native';
-import { Camera, CameraType, CameraView } from 'expo-camera';
-import * as MediaLibrary from 'expo-media-library';
-import axios from 'axios';
-import { Media } from '../../shared/types/media';
+import { Camera, CameraType, CameraView, useCameraPermissions, CameraRecordingOptions, CameraMode, useMicrophonePermissions } from "expo-camera";
+import { useRef, useState, useEffect } from "react";
+import { Button, Pressable, StyleSheet, Text, View, AppState } from "react-native";
+import { AntDesign, Feather, FontAwesome6 } from "@expo/vector-icons";
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../../shared/types/navigation';
 
-const MediaScreen = () => {
-    const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+type TestScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Media'>;
+
+export default function TestScreen() {
+    // Navigation
+    const navigation = useNavigation<TestScreenNavigationProp>();
+
+    // Permissions
+    const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+    const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
+
+    // Camera and Recording State
     const cameraRef = useRef<CameraView>(null);
+    const [mode, setMode] = useState<CameraMode>("picture");
     const [facing, setFacing] = useState<CameraType>("back");
+    const [recording, setRecording] = useState(false);
+    const [recordingTime, setRecordingTime] = useState(0);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    // App State Handler
     useEffect(() => {
-        (async () => {
-            const { status } = await Camera.requestCameraPermissionsAsync();
-            setHasCameraPermission(status === 'granted');
-        })();
-    }, []);
-
-    const captureMedia = async (type: 'photo' | 'video') => {
-        if (cameraRef.current) {
-            let media;
-            if (type === 'photo') {
-                media = await cameraRef.current.takePictureAsync(); // Correctly access takePictureAsync
-                // console.log(media);
-            } else {
-                media = await cameraRef.current.recordAsync(); // Correctly access recordAsync
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            if (nextAppState !== 'active' && recording) {
+                stopRecordingAndCleanup();
             }
+        });
+        return () => subscription.remove();
+    }, [recording]);
 
-            const formData = new FormData();
-            formData.append('media', {
-                uri: media?.uri,
-                name: 'media.jpg',
-                type: type === 'photo' ? 'image/jpeg' : 'video/mp4',
-            } as any);
+    // Camera Actions
+    const takePicture = async () => {
+        if (!cameraRef.current) return;
 
-            try {
-                console.log('Uploading media...');
-                const response = await axios.post('http://192.168.1.34:5000/api/media/upload', formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' },
+        try {
+            const photo = await cameraRef.current.takePictureAsync();
+            if (photo?.uri) {
+                navigation.navigate('Preview', {
+                    uri: photo.uri,
+                    type: 'image'
                 });
-                console.log(response.data);
-            } catch (error) {
-                console.error(error);
             }
+        } catch (error) {
+            console.error('Error taking picture:', error);
         }
     };
 
-    if (hasCameraPermission === null) {
-        return <View />;
-    }
-    if (hasCameraPermission === false) {
-        return <Text>No access to camera</Text>;
+    const startRecording = async () => {
+        if (!cameraRef.current) return;
+
+        try {
+            // Ensure camera is ready
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            const options: CameraRecordingOptions = {
+                maxDuration: 60,
+            };
+
+            // Set state first to prevent race conditions
+            setRecording(true);
+            setRecordingTime(0);
+
+            timerRef.current = setInterval(() => {
+                setRecordingTime(prev => prev + 1);
+            }, 1000);
+
+            // Start recording with proper error handling
+            const recordedVideo = await cameraRef.current.recordAsync(options)
+                .catch(error => {
+                    throw new Error(`Failed to start recording: ${error.message}`);
+                });
+
+            if (!recordedVideo?.uri) {
+                throw new Error('Recording started but no video URI received');
+            }
+
+            // Navigate after successful recording
+            navigation.navigate('Preview', {
+                uri: recordedVideo.uri,
+                type: 'video'
+            });
+        } catch (error) {
+            console.error('Recording failed:', error);
+            await stopRecordingAndCleanup();
+        } finally {
+            if (timerRef.current) clearInterval(timerRef.current);
+        }
+    };
+
+    const stopRecordingAndCleanup = async () => {
+        if (!cameraRef.current) return null;
+
+        try {
+            setRecording(false);
+            if (timerRef.current) clearInterval(timerRef.current);
+            setRecordingTime(0);
+            return cameraRef.current.stopRecording();
+        } catch (error) {
+            console.error('Error stopping recording:', error);
+            return null;
+        }
+    };
+
+    // Permission Check
+    if (!cameraPermission || !microphonePermission) return null;
+
+    if (!cameraPermission.granted || !microphonePermission.granted) {
+        return (
+            <View style={styles.container}>
+                <Text style={styles.permissionText}>
+                    We need your permission to use the camera and microphone
+                </Text>
+                <Button
+                    onPress={async () => {
+                        await requestCameraPermission();
+                        await requestMicrophonePermission();
+                    }}
+                    title="Grant permissions"
+                />
+            </View>
+        );
     }
 
+    // UI Controls
+    const toggleMode = () => {
+        if (recording) return;
+        setMode(prev => prev === "picture" ? "video" : "picture");
+    };
+
     const toggleFacing = () => {
-        setFacing((prev) => (prev === "back" ? "front" : "back"));
+        if (recording) return;
+        setFacing(prev => prev === "back" ? "front" : "back");
     };
 
     return (
-        <View style={{ flex: 1 }}>
+        <View style={styles.container}>
             <CameraView
+                style={styles.camera}
                 ref={cameraRef}
-                style={{ flex: 1 }}
-                facing={facing}>
-                <View style={{ flex: 1, justifyContent: 'flex-end', gap: 5, paddingBottom: 50, alignItems: 'center' }}>
-                    <Button title="Take Photo" onPress={() => captureMedia('photo')} />
-                    <Button title="Record Video" onPress={() => captureMedia('video')} />
-                    <Button title={facing} onPress={() => toggleFacing()} />
+                facing={facing}
+                mode={mode}
+            >
+                <View style={styles.timerContainer}>
+                    {mode === "video" && recording && (
+                        <Text style={styles.timerText}>{recordingTime}s</Text>
+                    )}
+                </View>
+                <View style={styles.shutterContainer}>
+                    <Pressable
+                        onPress={toggleMode}
+                        style={[styles.controlButton, recording && styles.disabledButton]}
+                        disabled={recording}
+                    >
+                        {mode === "picture" ? (
+                            <Feather name="video" size={32} color={recording ? "gray" : "white"} />
+                        ) : (
+                            <FontAwesome6 name="video" size={32} color={recording ? "gray" : "white"} />
+                        )}
+                    </Pressable>
+                    <Pressable
+                        onPress={mode === "picture" ? takePicture : recording ? stopRecordingAndCleanup : startRecording}
+                    >
+                        {({ pressed }) => (
+                            <View style={[
+                                styles.shutterButton,
+                                pressed && styles.shutterButtonPressed,
+                                recording && styles.recordingButton
+                            ]} />
+                        )}
+                    </Pressable>
+                    <Pressable
+                        onPress={toggleFacing}
+                        style={[styles.controlButton, recording && styles.disabledButton]}
+                        disabled={recording}
+                    >
+                        <AntDesign name="sync" size={32} color={recording ? "gray" : "white"} />
+                    </Pressable>
                 </View>
             </CameraView>
-        </View >
+        </View>
     );
-};
+}
 
-export default MediaScreen;
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: "#000",
+    },
+    camera: {
+        flex: 1,
+        justifyContent: "flex-end",
+    },
+    timerContainer: {
+        position: "absolute",
+        top: 40,
+        width: "100%",
+        alignItems: "center",
+    },
+    timerText: {
+        color: "white",
+        fontSize: 20,
+        fontWeight: "bold",
+    },
+    shutterContainer: {
+        flexDirection: "row",
+        justifyContent: "space-around",
+        alignItems: "center",
+        marginBottom: 30,
+    },
+    controlButton: {
+        padding: 10,
+    },
+    disabledButton: {
+        opacity: 0.5,
+    },
+    shutterButton: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: "white",
+        borderWidth: 4,
+        borderColor: "#000",
+    },
+    shutterButtonPressed: {
+        transform: [{ scale: 0.95 }],
+    },
+    recordingButton: {
+        backgroundColor: "red",
+    },
+    permissionText: {
+        textAlign: "center",
+        marginBottom: 20,
+    },
+});

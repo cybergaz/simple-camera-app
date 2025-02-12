@@ -13,7 +13,6 @@ const HomeScreen = () => {
     return (
         <View style={{ flex: 1, justifyContent: 'center', gap: 50, alignItems: 'center' }}>
             <Button title="Capture Media" onPress={() => navigation.navigate('Media')} />
-            <Button title="Test Screen" onPress={() => navigation.navigate('Test')} />
         </View>
     );
 };
