@@ -9,7 +9,7 @@ export const uploadMedia = async (req: Request, res: Response) => {
     }
 
     try {
-        console.log('Uploading file to S3...');
+        // console.log('Uploading file to S3...');
         const fileUrl = await uploadToS3(req.file, process.env.AWS_S3_BUCKET_NAME!);
         res.status(200).json({ message: 'File uploaded successfully', fileUrl });
     } catch (error) {

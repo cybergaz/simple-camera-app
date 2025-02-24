@@ -14,7 +14,7 @@ export default function TestScreen() {
 
     // Permissions
     const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-    const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
+    const [microphonePermission, requestMicrophonePermissions] = useMicrophonePermissions();
 
     // Camera and Recording State
     const cameraRef = useRef<CameraView>(null);
@@ -119,7 +119,7 @@ export default function TestScreen() {
                 <Button
                     onPress={async () => {
                         await requestCameraPermission();
-                        await requestMicrophonePermission();
+                        await requestMicrophonePermissions();
                     }}
                     title="Grant permissions"
                 />
@@ -146,6 +146,20 @@ export default function TestScreen() {
                 facing={facing}
                 mode={mode}
             >
+                <View style={styles.topControls}>
+                    <Pressable
+                        style={styles.controlButton}
+                        onPress={() => navigation.navigate('Gallery')}
+                    >
+                        <FontAwesome6 name="images" size={24} color="white" />
+                    </Pressable>
+                    <Pressable
+                        style={styles.controlButton}
+                        onPress={() => setFacing(facing === 'back' ? 'front' : 'back')}
+                    >
+                        <FontAwesome6 name="camera-rotate" size={24} color="white" />
+                    </Pressable>
+                </View>
                 <View style={styles.timerContainer}>
                     {mode === "video" && recording && (
                         <Text style={styles.timerText}>{recordingTime}s</Text>
@@ -196,6 +210,21 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: "flex-end",
     },
+    topControls: {
+        position: 'absolute',
+        top: 40,
+        right: 20,
+        flexDirection: 'row',
+        gap: 20,
+    },
+    controlButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     timerContainer: {
         position: "absolute",
         top: 40,
@@ -212,9 +241,6 @@ const styles = StyleSheet.create({
         justifyContent: "space-around",
         alignItems: "center",
         marginBottom: 30,
-    },
-    controlButton: {
-        padding: 10,
     },
     disabledButton: {
         opacity: 0.5,

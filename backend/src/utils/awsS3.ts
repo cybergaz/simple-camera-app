@@ -20,7 +20,7 @@ export const uploadToS3 = async (file: Express.Multer.File, bucketName: string) 
     };
 
     try {
-        console.log('Uploading to S3 final call...');
+        console.log('Uploading to S3');
         const data = await s3.upload(params).promise();
         return data.Location; // Return the file URL
     } catch (error) {
