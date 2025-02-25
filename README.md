@@ -80,15 +80,18 @@ bun install
 
 ## Running the Application
 
-1. Start the backend server:
+1. Method 1: Start both backend + frontend simultaneously, in the root directory:
+```bash
+bun run start
+```
+The server will start on `http://localhost:5000` and frontend will start on `exp://<local-ipv4-of-development-machine>:8081`
+
+2. Method 2: Start the frontend & backend in seperate terminals:
 ```bash
 cd backend
 bun run start
-```
-The server will start on `http://localhost:5000`
 
-2. Start the frontend development server (in a new terminal):
-```bash
+# in a seperate terminal session
 cd frontend
 bun run start
 ```
