@@ -43,7 +43,7 @@ export default function GalleryScreen() {
             const items: MediaItem[] = files.map(filename => ({
                 uri: MEDIA_FOLDER + filename,
                 type: filename.endsWith('.mp4') ? 'video' : 'image',
-                selected: false
+                selected: false,
             }));
             setMediaItems(items);
         } catch (error) {
@@ -68,13 +68,19 @@ export default function GalleryScreen() {
     };
 
     const toggleSelection = (item: MediaItem) => {
-        const newMediaItems = mediaItems.map(mediaItem => 
-            mediaItem.uri === item.uri 
+        const newMediaItems = mediaItems.map(mediaItem =>
+            mediaItem.uri === item.uri
                 ? { ...mediaItem, selected: !mediaItem.selected }
                 : mediaItem
         );
         setMediaItems(newMediaItems);
-        setSelectedItems(newMediaItems.filter(item => item.selected));
+        const newSelectedItems = newMediaItems.filter(item => item.selected);
+        setSelectedItems(newSelectedItems);
+
+        // Exit selection mode if no items are selected
+        if (newSelectedItems.length === 0) {
+            setSelectionMode(false);
+        }
     };
 
     const exitSelectionMode = () => {
@@ -82,6 +88,7 @@ export default function GalleryScreen() {
         setMediaItems(mediaItems.map(item => ({ ...item, selected: false })));
         setSelectedItems([]);
     };
+
 
     const uploadToCloud = async () => {
         if (selectedItems.length === 0) {
@@ -99,7 +106,7 @@ export default function GalleryScreen() {
                     type: item.type === 'image' ? 'image/jpeg' : 'video/mp4',
                 } as any);
 
-                await axios.post('http://localhost:3000/api/upload', formData, {
+                await axios.post(`http://${process.env.EXPO_PUBLIC_SERVER_HOST}:${process.env.EXPO_PUBLIC_SERVER_PORT}/api/media/upload`, formData, {
                     headers: {
                         'Content-Type': 'multipart/form-data',
                     },
@@ -115,8 +122,50 @@ export default function GalleryScreen() {
         }
     };
 
+    const deleteSelectedItems = async () => {
+        if (selectedItems.length === 0) return;
+
+        Alert.alert(
+            'Delete Items',
+            `Are you sure you want to delete ${selectedItems.length} item${selectedItems.length > 1 ? 's' : ''}?`,
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            // Delete the files from the file system
+                            for (const item of selectedItems) {
+                                await FileSystem.deleteAsync(item.uri);
+                                console.log('Deleted file:', item.uri);
+                            }
+
+                            // Reload media files to ensure UI is in sync
+                            await loadMediaFiles();
+
+                            // Exit selection mode
+                            exitSelectionMode();
+
+                            Alert.alert('Success', 'Files deleted successfully');
+                        } catch (error) {
+                            console.error('Delete error:', error);
+                            Alert.alert('Error', 'Failed to delete files');
+
+                            // If deletion fails, reload the media files to sync the UI with the file system
+                            loadMediaFiles();
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
     const renderItem = ({ item }: { item: MediaItem }) => (
-        <Pressable 
+        <Pressable
             style={[styles.mediaItem, item.selected && styles.selectedItem]}
             onPress={() => handleItemPress(item)}
             onLongPress={() => handleLongPress(item)}
@@ -127,19 +176,20 @@ export default function GalleryScreen() {
                     source={{ uri: item.uri }}
                     style={styles.media}
                     contentFit="cover"
+                    key={item.uri} // Prevent caching issues
                 />
             ) : (
                 <View style={styles.media}>
                     <Video
                         source={{ uri: item.uri }}
                         style={styles.media}
-                        resizeMode="cover"
                         shouldPlay={false}
+                        key={item.uri} // Force re-render
                     />
-                    <FontAwesome 
-                        name="play-circle" 
-                        size={30} 
-                        color="white" 
+                    <FontAwesome
+                        name="play-circle"
+                        size={30}
+                        color="white"
                         style={styles.playIcon}
                     />
                 </View>
@@ -160,19 +210,32 @@ export default function GalleryScreen() {
                 keyExtractor={item => item.uri}
                 numColumns={3}
                 contentContainerStyle={styles.list}
+                key={mediaItems.length} // Force re-render when mediaItems changes
             />
-            
+
             {selectionMode && selectedItems.length > 0 && (
                 <View style={styles.footer}>
-                    <Pressable 
-                        style={styles.uploadButton}
-                        onPress={uploadToCloud}
-                        disabled={uploading}
-                    >
-                        <Text style={styles.uploadButtonText}>
-                            {uploading ? 'Uploading...' : `Upload ${selectedItems.length} items`}
-                        </Text>
-                    </Pressable>
+                    <View style={styles.footerButtons}>
+                        <Pressable
+                            style={[styles.footerButton, styles.deleteButton]}
+                            onPress={deleteSelectedItems}
+                        >
+                            <FontAwesome name="trash" size={20} color="white" />
+                            <Text style={styles.buttonText}>
+                                Delete ({selectedItems.length})
+                            </Text>
+                        </Pressable>
+                        <Pressable
+                            style={[styles.footerButton, styles.uploadButton]}
+                            onPress={uploadToCloud}
+                            disabled={uploading}
+                        >
+                            <FontAwesome name="cloud-upload" size={20} color="white" />
+                            <Text style={styles.buttonText}>
+                                {uploading ? 'Uploading...' : `Upload (${selectedItems.length})`}
+                            </Text>
+                        </Pressable>
+                    </View>
                 </View>
             )}
 
@@ -182,7 +245,7 @@ export default function GalleryScreen() {
                 animationType="fade"
                 onRequestClose={() => setPreviewItem(null)}
             >
-                <Pressable 
+                <Pressable
                     style={styles.modalContainer}
                     onPress={() => setPreviewItem(null)}
                 >
@@ -193,15 +256,16 @@ export default function GalleryScreen() {
                                     source={{ uri: previewItem.uri }}
                                     style={styles.previewMedia}
                                     contentFit="contain"
+                                    key={previewItem.uri} // Prevent caching issues
                                 />
                             ) : (
                                 <Video
                                     source={{ uri: previewItem.uri }}
                                     style={styles.previewMedia}
                                     useNativeControls
-                                    resizeMode="contain"
                                     shouldPlay
                                     isLooping
+                                    key={previewItem.uri} // Force re-render
                                 />
                             )}
                         </View>
@@ -221,7 +285,9 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     list: {
-        padding: 2,
+        padding: 5,
+        paddingTop: 50,
+        paddingBottom: 50,
     },
     mediaItem: {
         width: itemSize,
@@ -257,13 +323,27 @@ const styles = StyleSheet.create({
         borderTopColor: '#eee',
         backgroundColor: 'white',
     },
-    uploadButton: {
-        backgroundColor: '#2196F3',
+    footerButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 12,
+    },
+    footerButton: {
+        flex: 1,
+        flexDirection: 'row',
         padding: 16,
         borderRadius: 8,
         alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
     },
-    uploadButtonText: {
+    uploadButton: {
+        backgroundColor: '#2196F3',
+    },
+    deleteButton: {
+        backgroundColor: '#DC3545',
+    },
+    buttonText: {
         color: 'white',
         fontWeight: 'bold',
     },

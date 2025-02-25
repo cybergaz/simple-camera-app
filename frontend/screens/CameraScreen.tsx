@@ -153,12 +153,6 @@ export default function TestScreen() {
                     >
                         <FontAwesome6 name="images" size={24} color="white" />
                     </Pressable>
-                    <Pressable
-                        style={styles.controlButton}
-                        onPress={() => setFacing(facing === 'back' ? 'front' : 'back')}
-                    >
-                        <FontAwesome6 name="camera-rotate" size={24} color="white" />
-                    </Pressable>
                 </View>
                 <View style={styles.timerContainer}>
                     {mode === "video" && recording && (
@@ -212,8 +206,8 @@ const styles = StyleSheet.create({
     },
     topControls: {
         position: 'absolute',
-        top: 40,
-        right: 20,
+        bottom: 150,
+        right: 40,
         flexDirection: 'row',
         gap: 20,
     },
@@ -227,7 +221,7 @@ const styles = StyleSheet.create({
     },
     timerContainer: {
         position: "absolute",
-        top: 40,
+        top: 50,
         width: "100%",
         alignItems: "center",
     },
