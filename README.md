@@ -23,7 +23,7 @@ Before you begin, ensure you have installed:
 
 ## Project Structure
 ```
-test-app/
+simple-camera-app/
 ├── frontend/
 │   ├── screens/           # Screen components
 │   ├── components/        # Reusable UI components
@@ -33,7 +33,7 @@ test-app/
 │   ├── src/
 │   │   ├── controllers/  # Request handlers
 │   │   └── routes/      # API routes
-│   └── server.ts        # Express server setup
+│   └── index.ts        # Express server setup
 └── shared/
     └── types/           # Shared TypeScript types
 ```
