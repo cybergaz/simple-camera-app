@@ -21,16 +21,20 @@ export const LoginScreen = () => {
 
         try {
             if (isLogin) {
-                await signIn(email, password);
+                try {
+                    await signIn(email, password);
+                } catch (err) {
+                    setError('Invalid email or password');
+                }
             } else {
-                await signUp(email, password);
+                try {
+                    await signUp(email, password);
+                } catch (err) {
+                    setError('Email already registered');
+                }
             }
         } catch (err) {
-            if (err instanceof Error) {
-                setError(err.message);
-            } else {
-                setError('Something went wrong');
-            }
+            setError('Something went wrong');
         } finally {
             setLoading(false);
         }

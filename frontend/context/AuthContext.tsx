@@ -1,11 +1,5 @@
 import React, { createContext, useState, useContext } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
-
-// const supabase = createClient(
-//     'https://iskdvlatupcxqqntefjm.supabase.co',
-//     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlza2R2bGF0dXBjeHFxbnRlZmptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAxNDM0OTYsImV4cCI6MjA1NTcxOTQ5Nn0.K7WX8tTDgfv8TbLHyBpfsM9AIyCwQ5joSXdb9cU_6ZI'
-// );
 
 type User = {
     id: number;
